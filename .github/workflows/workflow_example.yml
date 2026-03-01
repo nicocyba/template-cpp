@@ -1,0 +1,60 @@
+name: PR Checks Example
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint and Basic Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install lint tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Install C++ lint tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy clang-format
+
+      - name: Run Ruff lint checks
+        run: ruff check .
+
+      - name: Run Ruff formatter check
+        run: ruff format --check .
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy checks
+        run: |
+          files=$(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx')
+          if [ -z "$files" ]; then
+            echo "No C/C++ source files found."
+            exit 0
+          fi
+          clang-tidy -p build $files
+
+      - name: Run clang-format check
+        run: |
+          files=$(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp')
+          if [ -z "$files" ]; then
+            echo "No C/C++ files found for formatting check."
+            exit 0
+          fi
+          echo "$files" | xargs -r clang-format --dry-run --Werror
